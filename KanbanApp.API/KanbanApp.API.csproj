@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\KanbanApp.Domain\KanbanApp.Domain.csproj" />
+    <ProjectReference Include="..\KanbanApp.Infra.Data\KanbanApp.Infra.Data.csproj" />
+    <ProjectReference Include="..\KanbanApp.Infra.Security\KanbanApp.Infra.Security.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,49 @@
+﻿@inherits LayoutComponentBase
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            @if(IsAuthenticated)
+            {
+                <div class="text-end">
+                    <strong>@pessoa.Nome</strong> 
+                    <button @onclick="Logout" class="btn btn-outline-secondary btn-sm ms-3">
+                        Sair
+                    </button>
+                </div>
+            }
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@using KanbanApp.UI.Services
+@using KanbanApp.UI.Dtos
+
+@inject AuthService Auth
+
+@code {
+
+    private bool IsAuthenticated = false;
+    private AutenticarPessoaResponseDto pessoa;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if(await Auth.IsLoggedIn()) 
+        {
+            IsAuthenticated = true;
+            pessoa = await Auth.GetData();
+        }
+    }
+
+    private async Task Logout()
+    {
+        await Auth.SignOut(); 
+    }
+}

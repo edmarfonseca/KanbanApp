@@ -1,0 +1,209 @@
+﻿@page "/consultar-tarefas"
+
+<div class="m-4">
+    <div class="card">
+        <div class="card-body">
+
+            <h3 class="mt-2">Consulta de Tarefas</h3>
+
+            @if (!string.IsNullOrEmpty(mensagemSucesso))
+            {
+                <div class="alert alert-success">
+                    <strong>@mensagemSucesso</strong>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(mensagemErro))
+            {
+                <div class="alert alert-danger">
+                    <strong>@mensagemErro</strong>
+                </div>
+            }
+
+            <hr />
+
+            <EditForm Model="@model" OnValidSubmit="@OnSubmit">
+
+                @* Habilitando as validações *@
+                <DataAnnotationsValidator />
+
+                <div class="row mb-2">
+                    <div class="col-md-3">
+                        <InputText type="date" class="form-control" @bind-Value="@model.DataInicio" />
+                        <div class="text-danger">
+                            <ValidationMessage For="@(() => model.DataInicio)" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <InputText type="date" class="form-control" @bind-Value="@model.DataFim" />
+                        <div class="text-danger">
+                            <ValidationMessage For="@(() => model.DataFim)" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <input type="submit" class="btn btn-success" value="Pesquisar tarefas" />
+                    </div>
+                </div>                
+
+            </EditForm>
+
+            @if(model.Tarefas != null){
+                <div class="table-responsive mt-2">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Título da tarefa</th>
+                                <th>Data</th>
+                                <th>Descrição</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in model.Tarefas)
+                            {
+                                <tr>
+                                    <td>@item.Titulo</td>
+                                    <td>@item.DataHora.ToString("dd/MM/yyyy")</td>
+                                    <td>@item.Descricao</td>
+                                    <td>@item.Status.Nome</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary me-1"
+                                        @onclick="(() => OnEdit(item.Id))">
+                                            Editar
+                                        </button>
+                                        <button class="btn btn-sm btn-danger me-1"
+                                        @onclick="(() => OnDelete(item.Id, item.Titulo))">
+                                            Excluir
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>                        
+                    </table>
+                </div>
+            }
+
+        </div>
+    </div>
+</div>
+
+@if (showModal)
+{
+    <div class="modal fade show" tabindex="-1" style="display: block;" aria-hidden="false">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirma a exclusão da tarefa?</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDelete" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Título</strong><br/>@tituloTarefa</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Cancelar</button>
+                    <button type="button" class="btn btn-danger" @onclick="ConfirmDelete">Excluir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@using KanbanApp.UI.Services
+@using KanbanApp.UI.Models
+@using KanbanApp.UI.Settings
+@using KanbanApp.UI.Dtos
+
+@inject AuthService Auth
+@inject NavigationManager Navigation
+@inject HttpClient Http
+
+@code {
+
+    private ConsultarTarefaViewModel model = new ConsultarTarefaViewModel();
+
+    private string mensagemSucesso;
+    private string mensagemErro;
+
+    private Guid tarefaIdExcluir;
+    private bool showModal = false;
+    private string tituloTarefa;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await Auth.IsLoggedIn()) Navigation.NavigateTo("/", true);
+
+        model.DataInicio = DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
+        model.DataFim = model.DataInicio;
+
+        await OnSubmit();
+    }
+
+    private async Task OnSubmit()
+    {
+        mensagemSucesso = string.Empty;
+        mensagemErro = string.Empty;
+
+        try
+        {
+            Http.DefaultRequestHeaders.Authorization
+                = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", await Auth.GetAccessToken());
+
+            var response = await Http.GetAsync(HttpClientSettings.Tarefas + "/" + model.DataInicio + "/" + model.DataFim);
+            if (response.IsSuccessStatusCode)
+            {
+                model.Tarefas = await response.Content.ReadFromJsonAsync<List<TarefaResponseDto>>();
+                mensagemSucesso = "Quantidade de tarefas: " + model.Tarefas.Count;                
+            }
+            else
+                mensagemErro = "Não foi possível realizar a consulta das tarefas.";
+        }
+        catch (Exception e)
+        {
+            mensagemErro = "Falha ao consultar a tarefa: " + e.Message;
+        }
+    }
+
+    private async Task OnEdit(Guid id)
+    {
+        Navigation.NavigateTo($"/editar-tarefa/{id}");
+    }
+
+    private async Task OnDelete(Guid id, string titulo)
+    {
+        tarefaIdExcluir = id;
+        tituloTarefa = titulo;
+        showModal = true;
+    }
+
+    private void CancelDelete()
+    {
+        showModal = false;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        try
+        {
+            Http.DefaultRequestHeaders.Authorization
+                = new System.Net.Http.Headers.AuthenticationHeaderValue("bearer", await Auth.GetAccessToken());
+
+            var response = await Http.DeleteAsync(HttpClientSettings.Tarefas + "/" + tarefaIdExcluir);
+            if (response.IsSuccessStatusCode)
+            {
+                mensagemSucesso = "Tarefa excluída com sucesso!";
+                await OnSubmit();
+            }
+            else
+            {
+                mensagemErro = "Falha ao excluir a tarefa.";
+            }
+        }
+        catch (Exception e)
+        {
+            mensagemErro = "Erro ao excluir a tarefa: " + e.Message;
+        }
+
+        showModal = false;
+    }
+}
